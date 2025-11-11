@@ -31,7 +31,7 @@ export default function Home() {
       const signer = await provider.getSigner();
 
       // 간단한 ERC-721 민팅 (테스트용)
-      const contractAddress = "0x1234567890123456789012345678901234567890"; // 테스트넷 컨트랙트 (나중에 배포)
+      const contractAddress = "0xada5b4b0f2446f3f8532c309c0de222821ef572d"; // 테스트넷 컨트랙트 (나중에 배포)
       const abi = [
         "function safeMint(address to, string memory uri) public"
       ];
