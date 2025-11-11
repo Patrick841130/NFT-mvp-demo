@@ -8,9 +8,27 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   // 1) 더미 이미지 생성
-  const generate = () => {
-    setImage(`https://picsum.photos/400/300?random=${Date.now()}`);
-    setTxHash(null);
+  const generate = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) {
+        setImage(data.imageUrl);
+        setTxHash(null);
+      } else {
+        alert('이미지 생성 실패: ' + (data.error ?? 'unknown'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('이미지 생성 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 2) 실제 민팅
