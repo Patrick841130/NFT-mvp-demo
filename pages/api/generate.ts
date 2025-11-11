@@ -10,34 +10,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'prompt required' });
   }
 
-  if (!process.env.HF_TOKEN) {
+  const token = process.env.HF_TOKEN;
+  if (!token) {
     return res.status(500).json({ error: 'HF_TOKEN is missing on server' });
   }
 
   try {
-    // 👇 핵심: 모델은 쿼리스트링으로 넘긴다
-    const response = await fetch(
-      'https://router.huggingface.co/hf-inference?model=stabilityai/stable-diffusion-2-1',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.HF_TOKEN}`,
-          'Content-Type': 'application/json',
-          // 이미지로 받고 싶을 때
-          Accept: 'image/png',
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-        }),
-      }
-    );
+    // 👇 하나의 엔드포인트로 보내고, 모델 이름은 body에 넣는다
+    const response = await fetch('https://router.huggingface.co/hf-inference', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'image/png',
+      },
+      body: JSON.stringify({
+        model: 'stabilityai/stable-diffusion-2-1', // 여기서 모델 지정
+        inputs: prompt,
+      }),
+    });
 
     if (!response.ok) {
       const errText = await response.text();
       return res.status(response.status).json({ error: errText });
     }
 
-    // 라우터는 바이너리 이미지로 돌려준다
     const arrayBuffer = await response.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString('base64');
     const imageUrl = `data:image/png;base64,${base64}`;
