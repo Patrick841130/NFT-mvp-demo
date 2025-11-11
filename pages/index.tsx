@@ -8,9 +8,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   // AI 생성 (플레이스홀더 → 나중에 Replicate로 교체)
-  const generate = () => {
-    setImage(`https://picsum.photos/400/400?random=${Date.now()}`);
+  const generate = async () => {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await res.json();
+    setImage(data.imageUrl);
   };
+
 
   // 실제 민팅 함수
   const mintNFT = async () => {
