@@ -19,7 +19,12 @@ export default function Home() {
       alert('먼저 이미지를 생성해주세요!');
       return;
     }
-    if (typeof window === 'undefined' || typeof window.ethereum === 'undefined') {
+    if (typeof window === 'undefined') {
+      alert('브라우저 환경이 아닙니다.');
+      return;
+    }
+    const { ethereum } = window as any;
+    if (!ethereum) {
       alert('MetaMask가 필요합니다.');
       return;
     }
