@@ -41,6 +41,8 @@ export default function Home() {
       alert('브라우저 환경이 아닙니다.');
       return;
     }
+
+    // 메타마스크 객체
     const { ethereum } = window as any;
     if (!ethereum) {
       alert('MetaMask가 필요합니다.');
@@ -49,29 +51,34 @@ export default function Home() {
 
     setLoading(true);
     try {
-      // 지갑 연결
+      // 1) 지갑 연결
       await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
 
-      // ethers v6 스타일
+      // 2) provider/signer
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
 
-      // 👉 여기 네가 Amoy에 방금 배포한 컨트랙트 주소
+      // 3) 메타데이터 만들기
+      const metadata = {
+        name: `AI NFT ${Date.now()}`,
+        description: `Generated from prompt: ${prompt}`,
+        image: image, // 여기 실제 이미지 URL
+      };
+      // 브라우저에선 btoa 사용 가능
+      const tokenURI =
+        'data:application/json;base64,' +
+        btoa(JSON.stringify(metadata));
+
+      // 4) 컨트랙트 세팅
       const contractAddress = '0xada5b4b0f2446f3f8532c309c0de222821ef572d';
-
-      // 👉 우리가 Remix에서 만든 컨트랙트 시그니처
-      const abi = [
-        'function safeMint(address to, string memory uri) public'
-      ];
-
+      const abi = ['function safeMint(address to, string memory uri) public'];
       const contract = new ethers.Contract(contractAddress, abi, signer);
 
       const userAddress = await signer.getAddress();
 
-      // 이미지 URL을 그대로 tokenURI로 넣는다 (나중에 IPFS로 교체)
-      const tx = await contract.safeMint(userAddress, image);
-      setTxHash(tx.hash); // 일단 사용자에게 해시 보여주기
-      // 뒤에서 기다리게 하거나, 안 기다려도 됨
+      // 5) 민팅
+      const tx = await contract.safeMint(userAddress, tokenURI);
+      const receipt = await tx.wait();
 
 
       setTxHash(receipt.hash);
