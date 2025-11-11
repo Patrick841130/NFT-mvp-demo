@@ -7,92 +7,154 @@ export default function Home() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // AI 생성 (플레이스홀더 → 나중에 Replicate로 교체)
-  const generate = async () => {
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }),
-    });
-    const data = await res.json();
-    setImage(data.imageUrl);
+  // 1) 더미 이미지 생성
+  const generate = () => {
+    setImage(`https://picsum.photos/400/300?random=${Date.now()}`);
+    setTxHash(null);
   };
 
-
-  // 실제 민팅 함수
+  // 2) 실제 민팅
   const mintNFT = async () => {
-    if (!image) return alert('먼저 이미지를 생성해주세요!');
-    if (typeof window.ethereum === 'undefined') return alert('MetaMask 설치해주세요!');
+    if (!image) {
+      alert('먼저 이미지를 생성해주세요!');
+      return;
+    }
+    if (typeof window === 'undefined' || typeof window.ethereum === 'undefined') {
+      alert('MetaMask가 필요합니다.');
+      return;
+    }
 
     setLoading(true);
     try {
+      // 지갑 연결
       await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+      // ethers v6 스타일
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
 
-      // 간단한 ERC-721 민팅 (테스트용)
-      const contractAddress = "0xada5b4b0f2446f3f8532c309c0de222821ef572d"; // 테스트넷 컨트랙트 (나중에 배포)
+      // 👉 여기 네가 Amoy에 방금 배포한 컨트랙트 주소
+      const contractAddress = '0xada5b4b0f2446f3f8532c309c0de222821ef572d';
+
+      // 👉 우리가 Remix에서 만든 컨트랙트 시그니처
       const abi = [
-        "function safeMint(address to, string memory uri) public"
+        'function safeMint(address to, string memory uri) public'
       ];
+
       const contract = new ethers.Contract(contractAddress, abi, signer);
 
-      const tx = await contract.safeMint(
-        await signer.getAddress(),
-        image
-      );
-      await tx.wait();
-      setTxHash(tx.hash);
+      const userAddress = await signer.getAddress();
+
+      // 이미지 URL을 그대로 tokenURI로 넣는다 (나중에 IPFS로 교체)
+      const tx = await contract.safeMint(userAddress, image);
+      const receipt = await tx.wait();
+
+      setTxHash(receipt.hash);
       alert('민팅 성공!');
     } catch (err: any) {
-      alert('민팅 실패: ' + err.message);
+      console.error(err);
+      alert('민팅 실패: ' + (err.message ?? err));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div style={{ padding: '3rem', fontFamily: 'system-ui', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-      <h1 style={{ fontSize: '2.8rem', marginBottom: '1rem', color: '#10b981' }}>Nifty MVP</h1>
-      <p style={{ color: '#666', marginBottom: '2rem', fontSize: '1.2rem' }}>
-        AI로 1분 만에 단골 NFT 만들기
-      </p>
+    <div style={{
+      minHeight: '100vh',
+      background: '#f3f4f6',
+      padding: '3rem 1.5rem'
+    }}>
+      <div style={{
+        maxWidth: '640px',
+        margin: '0 auto',
+        background: '#fff',
+        borderRadius: '20px',
+        padding: '2.5rem 2rem',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
+        textAlign: 'center'
+      }}>
+        <h1 style={{ fontSize: '2.6rem', fontWeight: 700, color: '#059669', marginBottom: '0.5rem' }}>
+          Nifty MVP
+        </h1>
+        <p style={{ color: '#6b7280', marginBottom: '2rem' }}>
+          AI로 1분 만에 단골 NFT 만들기
+        </p>
 
-      <input
-        value={prompt}
-        onChange={e => setPrompt(e.target.value)}
-        style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', borderRadius: '12px', border: '2px solid #e5e7eb', marginBottom: '1.5rem' }}
-        placeholder="프롬프트 입력"
-      />
+        <input
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+          placeholder="프롬프트 입력"
+          style={{
+            width: '100%',
+            padding: '1rem',
+            borderRadius: '9999px',
+            border: '1px solid #e5e7eb',
+            marginBottom: '1.3rem',
+            outline: 'none',
+            fontSize: '1rem'
+          }}
+        />
 
-      <button
-        onClick={generate}
-        style={{ width: '100%', padding: '1.2rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.3rem', marginBottom: '1rem', cursor: 'pointer' }}
-      >
-        AI 이미지 생성
-      </button>
+        <button
+          onClick={generate}
+          style={{
+            width: '100%',
+            padding: '1rem',
+            background: '#10b981',
+            color: '#fff',
+            borderRadius: '9999px',
+            border: 'none',
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          AI 이미지 생성
+        </button>
 
-      {image && (
-        <div style={{ marginTop: '2rem' }}>
-          <img src={image} alt="NFT" style={{ borderRadius: '16px', maxWidth: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }} />
-          
-          <button
-            onClick={mintNFT}
-            disabled={loading}
-            style={{ width: '100%', padding: '1.2rem', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.3rem', marginTop: '1.5rem', cursor: 'pointer' }}
-          >
-            {loading ? '민팅 중...' : '실제 민팅하기 (Polygon Amoy)'}
-          </button>
+        {image && (
+          <div style={{ marginTop: '2.2rem' }}>
+            <img
+              src={image}
+              alt="generated"
+              style={{ width: '100%', borderRadius: '16px', boxShadow: '0 20px 30px rgba(0,0,0,0.1)' }}
+            />
+            <button
+              onClick={mintNFT}
+              disabled={loading}
+              style={{
+                width: '100%',
+                marginTop: '1.5rem',
+                padding: '1rem',
+                background: loading ? '#a855f7' : '#7c3aed',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '1.05rem',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {loading ? '민팅 중...' : 'Polygon Amoy에 민팅하기'}
+            </button>
 
-          {txHash && (
-            <p style={{ marginTop: '1rem', wordBreak: 'break-all', background: '#f3e8ff', padding: '1rem', borderRadius: '8px' }}>
-              성공! Tx: 
-              <a href={`https://amoy.polygonscan.com/tx/${txHash}`} target="_blank" style={{ color: '#7c3aed' }}>
-                확인하기
-              </a>
-            </p>
-          )}
-        </div>
-      )}
+            {txHash && (
+              <p style={{ marginTop: '1rem' }}>
+                트랜잭션:{" "}
+                <a
+                  href={`https://amoy.polygonscan.com/tx/${txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: '#7c3aed' }}
+                >
+                  확인하기
+                </a>
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
