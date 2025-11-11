@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const response = await fetch(
-      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3-medium',
+      'https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3-medium',
       {
         method: 'POST',
         headers: {
