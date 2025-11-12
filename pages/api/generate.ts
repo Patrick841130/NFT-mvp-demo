@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Hugging Face Router Inference API (text-to-image)
     // 문서: https://huggingface.co/docs/api-inference/quicktour#text-to-image-generation
     const endpoint =
-      'https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3.5-medium';
+      'https://router.huggingface.co/hf-inference/models/stabilityai/sd-turbo';
 
     const upstream = await fetch(endpoint, {
       method: 'POST',
