@@ -1,50 +1,70 @@
 // pages/api/generate.ts
-import type { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  const { prompt } = req.body as { prompt?: string };
-  if (!prompt) return res.status(400).json({ error: "prompt required" });
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST,OPTIONS');
+    return res.status(405).json({ error: 'POST only' });
+  }
+
+  const HF_TOKEN = process.env.HF_TOKEN;
+  if (!HF_TOKEN) {
+    return res.status(500).json({ detail: 'HF_TOKEN is missing on server' });
+  }
+
+  const body = typeof req.body === 'string' ? safeParse(req.body) : (req.body || {});
+  const prompt: string | undefined = (body as any)?.prompt;
+  if (!prompt) return res.status(400).json({ error: 'prompt required' });
 
   try {
-    // 실제 네가 방금 본 Space의 endpoint
-    const spaceUrl = "https://stabilityai-stable-diffusion-3-5-medium.hf.space/run/infer";
+    // Hugging Face Router Inference API (text-to-image)
+    // 문서: https://huggingface.co/docs/api-inference/quicktour#text-to-image-generation
+    const endpoint =
+      'https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3.5-medium';
 
-    const resp = await fetch(spaceUrl, {
-      method: "POST",
+    const upstream = await fetch(endpoint, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Authorization': `Bearer ${HF_TOKEN}`,
+        'Content-Type': 'application/json',
+        // 바이너리 이미지를 직접 받는다
+        'Accept': 'image/png',
       },
       body: JSON.stringify({
-        data: [
-          prompt,   // prompt
-          "",       // negative_prompt
-          0,        // seed
-          true,     // randomize_seed
-          1024,     // width
-          1024,     // height
-          4.5,      // guidance_scale
-          40        // num_inference_steps
-        ],
+        inputs: prompt,
+        parameters: {
+          negative_prompt: '',
+          width: 1024,
+          height: 1024,
+          num_inference_steps: 40,
+          guidance_scale: 4.5,
+        },
       }),
     });
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      return res.status(resp.status).json({ detail: text });
+    if (!upstream.ok) {
+      // 실패시 텍스트로 원인 반환
+      const text = await upstream.text();
+      return res.status(upstream.status).json({ detail: text || 'upstream error' });
     }
 
-    const result = await resp.json();
-    const imageUrl = result.data?.[0]?.url || result.data?.[0];
+    // 성공: PNG 바이너리를 받아서 data URL로 변환
+    const arrayBuf = await upstream.arrayBuffer();
+    const base64 = Buffer.from(arrayBuf).toString('base64');
+    const dataUrl = `data:image/png;base64,${base64}`;
 
-    if (!imageUrl) {
-      return res.status(500).json({ detail: "no image in response" });
-    }
-
-    return res.status(200).json({ imageUrl });
-  } catch (err: any) {
-    console.error(err);
-    return res.status(500).json({ detail: err.message ?? "fetch failed" });
+    return res.status(200).json({ imageUrl: dataUrl });
+  } catch (e: any) {
+    console.error(e);
+    return res.status(500).json({ detail: e?.message ?? 'fetch failed (server)' });
   }
+}
+
+function safeParse(s: string) {
+  try { return JSON.parse(s); } catch { return null; }
 }
