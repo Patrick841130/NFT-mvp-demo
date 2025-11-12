@@ -2,33 +2,24 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "POST only" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   const { prompt } = req.body as { prompt?: string };
-  if (!prompt) {
-    return res.status(400).json({ error: "prompt required" });
-  }
-
-  const token = process.env.HF_TOKEN;
-  if (!token) {
-    return res.status(500).json({ error: "HF_TOKEN missing on server" });
-  }
+  if (!prompt) return res.status(400).json({ error: "prompt required" });
 
   try {
-    // ✅ HF가 지금 쓰라고 한 라우터 엔드포인트
-    const resp = await fetch("https://router.huggingface.co/hf-inference", {
+    // 1) 여기만 네가 실제로 고른 Space 주소로 바꾸면 됨
+    // 예시: https://stabilityai-stable-diffusion.hf.space/run/predict
+    const spaceUrl = "https://stabilityai/stable-diffusion-3.5-medium";
+
+    const resp = await fetch(spaceUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
-        Accept: "image/png",
       },
+      // gradio space는 보통 이런 형식으로 prompt를 받는다
       body: JSON.stringify({
-        // ✅ 네가 목록에서 본, 라우터에서 바로 되는 모델
-        model: "black-forest-labs/FLUX.1-dev",
-        inputs: prompt,
+        data: [prompt],
       }),
     });
 
@@ -37,9 +28,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(resp.status).json({ error: errText });
     }
 
-    const arrayBuffer = await resp.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-    const imageUrl = `data:image/png;base64,${base64}`;
+    const result = await resp.json();
+    // 보통 result.data[0] 에 이미지 url 혹은 base64가 들어있다
+    const imageUrl = result.data?.[0]?.url || result.data?.[0];
+
+    if (!imageUrl) {
+      return res.status(500).json({ error: "no image in space response" });
+    }
 
     return res.status(200).json({ imageUrl });
   } catch (err: any) {
