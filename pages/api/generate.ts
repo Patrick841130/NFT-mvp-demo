@@ -1,6 +1,5 @@
 // pages/api/generate.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { HfInference } from "@huggingface/inference";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -18,19 +17,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const hf = new HfInference(token);
-
-    // 타입이 provider를 아직 모르는 버전이라 any로 우회
-    const imgBlob = await (hf as any).textToImage({
-      model: "stabilityai/stable-diffusion-3.5-medium",
-      provider: "fal-ai",              // <- 네가 UI에서 본 그 값
-      inputs: prompt,
-      parameters: {
-        num_inference_steps: 5,
+    // ✅ HF가 지금 쓰라고 한 라우터 엔드포인트
+    const resp = await fetch("https://router.huggingface.co/hf-inference", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "image/png",
       },
+      body: JSON.stringify({
+        // ✅ 네가 목록에서 본, 라우터에서 바로 되는 모델
+        model: "black-forest-labs/FLUX.1-dev",
+        inputs: prompt,
+      }),
     });
 
-    const arrayBuffer = await imgBlob.arrayBuffer();
+    if (!resp.ok) {
+      const errText = await resp.text();
+      return res.status(resp.status).json({ error: errText });
+    }
+
+    const arrayBuffer = await resp.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString("base64");
     const imageUrl = `data:image/png;base64,${base64}`;
 
