@@ -79,6 +79,37 @@ export default function Home() {
     }
   };
 
+  const AMOY_CHAIN_ID_HEX = '0x13882'; // 80002
+
+  async function ensureAmoy(ethereum: any) {
+    const targetChainId = AMOY_CHAIN_ID_HEX;
+    try {
+      const current = await ethereum.request({ method: 'eth_chainId' });
+      if (current?.toLowerCase() !== targetChainId) {
+       await ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: targetChainId }],
+        });
+      }
+    } catch (switchErr: any) {
+      // 지갑에 네트워크가 없으면 추가
+      if (switchErr?.code === 4902) {
+        await ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: targetChainId,
+            chainName: 'Polygon Amoy',
+            nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+            rpcUrls: ['https://rpc-amoy.polygon.technology/'],
+            blockExplorerUrls: ['https://amoy.polygonscan.com/'],
+          }],
+        });
+      } else {
+        throw switchErr;
+      }
+    }
+  }
+
   // 2) 실제 민팅
   const mintNFT = async () => {
     if (!image) {
